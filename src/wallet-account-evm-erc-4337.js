@@ -20,8 +20,6 @@ import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 
 import WalletAccountReadOnlyEvmErc4337 from './wallet-account-read-only-evm-erc-4337.js'
 
-/** @typedef {import('ethers').Eip1193Provider} Eip1193Provider */
-
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccount} IWalletAccount */
 
 /** @typedef {import('@tetherto/wdk-wallet-evm').KeyPair} KeyPair */
@@ -37,8 +35,6 @@ import WalletAccountReadOnlyEvmErc4337 from './wallet-account-read-only-evm-erc-
 /** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').EvmErc4337WalletSponsorshipPolicyConfig} EvmErc4337WalletSponsorshipPolicyConfig */
 /** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').TypedData} TypedData */
 /** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').EvmErc4337WalletNativeCoinsConfig} EvmErc4337WalletNativeCoinsConfig */
-
-/** @typedef {import('@tetherto/wdk-safe-relay-kit').Safe4337Pack} Safe4337Pack */
 
 const QUOTE_MAX_AGE_MS = 2 * 60 * 1_000
 
@@ -68,6 +64,9 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
     /** @private */
     this._ownerAccount = ownerAccount
+
+    /** @private */
+    this._disposed = false
   }
 
   /**
@@ -167,17 +166,15 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
       this._validateConfig(mergedConfig)
     }
 
-    const { isSponsored, useNativeCoins } = mergedConfig
+    let cached = this._consumeCachedQuote(tx)
+    if (!cached) {
+      await this.quoteSendTransaction(tx, config)
+      cached = this._consumeCachedQuote(tx)
+    }
 
-    const fee = this._getValidCachedFee(tx) ?? (await this.quoteSendTransaction(tx, config)).fee
-    this._lastQuote = undefined
+    const fee = cached?.fee ?? 0n
 
-    const amountToApprove = (isSponsored || useNativeCoins) ? 0n : fee
-
-    const hash = await this._sendUserOperation([tx].flat(), {
-      ...mergedConfig,
-      amountToApprove
-    })
+    const hash = await this._sendUserOperation([tx].flat(), mergedConfig, cached)
 
     return { hash, fee }
   }
@@ -196,23 +193,23 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
       this._validateConfig(mergedConfig)
     }
 
-    const { isSponsored, useNativeCoins, transferMaxFee } = mergedConfig
+    const { isSponsored, transferMaxFee } = mergedConfig
 
     const tx = await WalletAccountEvm._getTransferTransaction(options)
 
-    const fee = this._getValidCachedFee(tx) ?? (await this.quoteSendTransaction(tx, config)).fee
-    this._lastQuote = undefined
+    let cached = this._consumeCachedQuote(tx)
+    if (!cached) {
+      await this.quoteSendTransaction(tx, config)
+      cached = this._consumeCachedQuote(tx)
+    }
+
+    const fee = cached?.fee ?? 0n
 
     if (!isSponsored && transferMaxFee !== undefined && fee >= transferMaxFee) {
       throw new Error('Exceeded maximum fee cost for transfer operation.')
     }
 
-    const amountToApprove = (isSponsored || useNativeCoins) ? 0n : fee
-
-    const hash = await this._sendUserOperation([tx], {
-      ...mergedConfig,
-      amountToApprove
-    })
+    const hash = await this._sendUserOperation([tx], mergedConfig, cached)
 
     return { hash, fee }
   }
@@ -235,37 +232,11 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
    */
   dispose () {
     this._ownerAccount.dispose()
+    this._disposed = true
   }
 
-  /**
-   * Returns the safe's erc-4337 pack of the account.
-   * Extends parent implementation by adding signer for transaction signing.
-   *
-   * @protected
-   * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} [config] - The configuration object. Defaults to this._config if not provided.
-   * @returns {Promise<Safe4337Pack>} The safe's erc-4337 pack.
-   */
-  async _getSafe4337Pack (config = this._config) {
-    const safe4337Pack = await super._getSafe4337Pack(config)
-
-    const safeProvider = safe4337Pack.protocolKit.getSafeProvider()
-
-    if (!safeProvider.signer) {
-      safeProvider.signer = this._ownerAccount._account
-    }
-
-    return safe4337Pack
-  }
-
-  /**
-   * Returns the cached fee if it exists, is not expired, and matches the given transaction.
-   * Clears cache on match or expiry; preserves it on mismatch.
-   *
-   * @private
-   * @param {EvmTransaction | EvmTransaction[]} tx - The transaction to match against.
-   * @returns {bigint | undefined} The cached fee, or undefined if not available, expired, or mismatched.
-   */
-  _getValidCachedFee (tx) {
+  /** @private */
+  _consumeCachedQuote (tx) {
     const quote = this._lastQuote
 
     if (!quote) {
@@ -283,46 +254,35 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
 
     this._lastQuote = undefined
 
-    return quote.fee
+    return quote
   }
 
   /** @private */
-  async _sendUserOperation (txs, { amountToApprove, ...config }) {
-    const { useNativeCoins, paymasterToken, isSponsored, sponsorshipPolicyId } = config
-
-    const safe4337Pack = await this._getSafe4337Pack(config)
-
-    const address = await this.getAddress()
-
-    const twoMinutesFromNow = Math.floor(Date.now() / 1_000) + 2 * 60
-
-    const options = {
-      amountToApprove,
-      paymasterTokenAddress: (isSponsored || useNativeCoins) ? undefined : paymasterToken?.address,
-      isSponsored,
-      sponsorshipPolicyId: isSponsored ? sponsorshipPolicyId : undefined
+  async _sendUserOperation (txs, config, cachedBuild) {
+    if (this._disposed) {
+      throw new Error('Private key has been disposed.')
     }
 
     try {
-      const safeOperation = await safe4337Pack.createTransaction({
-        transactions: txs.map(tx => ({ from: address, ...tx })),
-        options: {
-          validUntil: twoMinutesFromNow,
-          feeEstimator: await this._getFeeEstimator(),
-          ...options
-        }
-      })
+      const { userOp, smartAccount, chainId } = cachedBuild?.userOp
+        ? cachedBuild
+        : await this._buildUserOperation(WalletAccountReadOnlyEvmErc4337._toCalls(txs), config)
 
-      const signedSafeOperation = await safe4337Pack.signSafeOperation(safeOperation)
+      const signer = {
+        address: this._ownerAccountAddress,
+        signHash: async (hash) => this._ownerAccount._account.signingKey.sign(hash).serialized
+      }
+      userOp.signature = await smartAccount.signUserOperationWithSigners(
+        userOp,
+        [signer],
+        chainId
+      )
 
-      return await safe4337Pack.executeTransaction({
-        executable: signedSafeOperation
-      })
+      return await this._getBundler().sendUserOperation(userOp, smartAccount.entrypointAddress)
     } catch (err) {
-      if (err.message.includes('AA50')) {
+      if (err.message?.includes('AA50')) {
         throw new Error('Not enough funds on the safe account to repay the paymaster.')
       }
-
       throw err
     }
   }

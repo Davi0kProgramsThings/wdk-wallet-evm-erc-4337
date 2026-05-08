@@ -180,9 +180,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
      * @protected
      * @param {MetaTransaction[]} calls - The meta-transactions to include in the UserOperation.
      * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The wallet configuration.
-     * @returns {Promise<{userOp: UserOperationV7, smartAccount: SafeAccountV0_3_0, mode: string, chainId: bigint, tokenQuote?: TokenQuote}>} The fully-populated UserOperation ready to sign.
+     * @returns {Promise<BuiltUserOperation>} The built operation, signing context, and (in token mode) the paymaster quote.
      */
-    protected _buildUserOperation(calls: import('abstractionkit').MetaTransaction[], config: Omit<EvmErc4337WalletConfig, "transferMaxFee">): Promise<{userOp: import('abstractionkit').UserOperationV7, smartAccount: import('abstractionkit').SafeAccountV0_3_0, mode: string, chainId: bigint, tokenQuote?: import('abstractionkit').TokenQuote}>;
+    protected _buildUserOperation(calls: import('abstractionkit').MetaTransaction[], config: Omit<EvmErc4337WalletConfig, "transferMaxFee">): Promise<BuiltUserOperation>;
     /** @protected */
     protected _getUserOperationGasCost(txs: EvmTransaction[], config: Omit<EvmErc4337WalletConfig, "transferMaxFee">): Promise<object>;
 }
@@ -219,6 +219,28 @@ export type TransactionQuote = {
      * - The chain id.
      */
     chainId?: bigint;
+};
+export type BuiltUserOperation = {
+    /**
+     * - The fully-populated UserOperation ready to sign.
+     */
+    userOp: import('abstractionkit').UserOperationV7;
+    /**
+     * - The Safe account that will execute the operation.
+     */
+    smartAccount: import('abstractionkit').SafeAccountV0_3_0;
+    /**
+     * - The paymaster mode used to build the operation.
+     */
+    mode: 'native' | 'sponsored' | 'token';
+    /**
+     * - The chain id captured at build time.
+     */
+    chainId: bigint;
+    /**
+     * - The paymaster token quote, present only in token mode.
+     */
+    tokenQuote?: import('abstractionkit').TokenQuote;
 };
 export type OnChainIdentifier = {
     /**

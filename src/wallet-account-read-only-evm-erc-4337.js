@@ -30,6 +30,7 @@ import {
 
 /** @typedef {import('abstractionkit').InitCodeOverrides} InitCodeOverrides */
 /** @typedef {import('abstractionkit').MetaTransaction} MetaTransaction */
+/** @typedef {import('abstractionkit').SafeAccountV0_3_0} SafeAccountV0_3_0 */
 
 import { ConfigurationError } from './errors.js'
 
@@ -54,6 +55,7 @@ export const FEE_TOLERANCE_COEFFICIENT = 120n
 
 /** @typedef {import('abstractionkit').UserOperationReceiptResult} UserOperationReceipt */
 /** @typedef {import('abstractionkit').UserOperationV7} UserOperationV7 */
+/** @typedef {import('abstractionkit').TokenQuote} TokenQuote */
 
 /**
  * @typedef {Object} TransactionQuote
@@ -63,6 +65,15 @@ export const FEE_TOLERANCE_COEFFICIENT = 120n
  * @property {UserOperationV7} [userOp] - The built UserOperation, reusable by sendTransaction.
  * @property {SafeAccountV0_3_0} [smartAccount] - The smart account instance used to build the UserOperation.
  * @property {bigint} [chainId] - The chain id.
+ */
+
+/**
+ * @typedef {Object} BuiltUserOperation
+ * @property {UserOperationV7} userOp - The fully-populated UserOperation ready to sign.
+ * @property {SafeAccountV0_3_0} smartAccount - The Safe account that will execute the operation.
+ * @property {'native' | 'sponsored' | 'token'} mode - The paymaster mode used to build the operation.
+ * @property {bigint} chainId - The chain id captured at build time.
+ * @property {TokenQuote} [tokenQuote] - The paymaster token quote, present only in token mode.
  */
 
 /**
@@ -521,7 +532,7 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
    * @protected
    * @param {MetaTransaction[]} calls - The meta-transactions to include in the UserOperation.
    * @param {Omit<EvmErc4337WalletConfig, 'transferMaxFee'>} config - The wallet configuration.
-   * @returns {Promise<{userOp: UserOperationV7, smartAccount: SafeAccountV0_3_0, mode: string, chainId: bigint, tokenQuote?: import('abstractionkit').TokenQuote}>} The fully-populated UserOperation ready to sign.
+   * @returns {Promise<BuiltUserOperation>} The built operation, signing context, and (in token mode) the paymaster quote.
    */
   async _buildUserOperation (calls, config) {
     const smartAccount = await this._getSmartAccount(config)

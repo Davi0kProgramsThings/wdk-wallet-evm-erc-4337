@@ -58,16 +58,6 @@ export const FEE_TOLERANCE_COEFFICIENT = 120n
 /** @typedef {import('abstractionkit').TokenQuote} TokenQuote */
 
 /**
- * @typedef {Object} TransactionQuote
- * @property {bigint} fee - The estimated fee with tolerance buffer applied.
- * @property {number} createdAt - The timestamp when the quote was created.
- * @property {string} txKey - A serialized key of the transaction used for cache matching.
- * @property {UserOperationV7} [userOp] - The built UserOperation, reusable by sendTransaction.
- * @property {SafeAccountV0_3_0} [smartAccount] - The smart account instance used to build the UserOperation.
- * @property {bigint} [chainId] - The chain id captured at quote time, used to sign the cached UserOperation for the right network.
- */
-
-/**
  * @typedef {Object} BuiltUserOperation
  * @property {UserOperationV7} userOp - The fully-populated UserOperation ready to sign.
  * @property {SafeAccountV0_3_0} smartAccount - The Safe account that will execute the operation.

@@ -20,7 +20,21 @@ import { WalletAccountEvm } from '@tetherto/wdk-wallet-evm'
 
 import WalletAccountReadOnlyEvmErc4337, { FEE_TOLERANCE_COEFFICIENT } from './wallet-account-read-only-evm-erc-4337.js'
 
-/** @typedef {import('./wallet-account-read-only-evm-erc-4337.js').TransactionQuote} TransactionQuote */
+/** @typedef {import('abstractionkit').UserOperationV7} UserOperationV7 */
+/** @typedef {import('abstractionkit').SafeAccountV0_3_0} SafeAccountV0_3_0 */
+
+/**
+ * Internal cache shape for `_quoteCache`. Not part of the public API.
+ *
+ * @internal
+ * @typedef {Object} TransactionQuote
+ * @property {bigint} fee - The estimated fee with tolerance buffer applied.
+ * @property {number} createdAt - The timestamp when the quote was created.
+ * @property {string} txKey - A serialized key of the transaction used for cache matching.
+ * @property {UserOperationV7} [userOp] - The built UserOperation, reusable by sendTransaction.
+ * @property {SafeAccountV0_3_0} [smartAccount] - The smart account instance used to build the UserOperation.
+ * @property {bigint} [chainId] - The chain id captured at quote time, used to sign the cached UserOperation for the right network.
+ */
 
 /** @typedef {import('@tetherto/wdk-wallet').IWalletAccount} IWalletAccount */
 

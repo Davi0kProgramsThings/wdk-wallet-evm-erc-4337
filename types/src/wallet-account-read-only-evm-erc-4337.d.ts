@@ -211,32 +211,6 @@ export type TransferResult = import("@tetherto/wdk-wallet-evm").TransferResult;
 export type EvmTransactionReceipt = import("@tetherto/wdk-wallet-evm").EvmTransactionReceipt;
 export type TypedData = import("@tetherto/wdk-wallet-evm").TypedData;
 export type UserOperationReceipt = import('abstractionkit').UserOperationReceiptResult;
-export type TransactionQuote = {
-    /**
-     * - The estimated fee with tolerance buffer applied.
-     */
-    fee: bigint;
-    /**
-     * - The timestamp when the quote was created.
-     */
-    createdAt: number;
-    /**
-     * - A serialized key of the transaction used for cache matching.
-     */
-    txKey: string;
-    /**
-     * - The built UserOperation, reusable by sendTransaction.
-     */
-    userOp?: import('abstractionkit').UserOperationV7;
-    /**
-     * - The smart account instance used to build the UserOperation.
-     */
-    smartAccount?: import('abstractionkit').SafeAccountV0_3_0;
-    /**
-     * - The chain id captured at quote time, used to sign the cached UserOperation for the right network.
-     */
-    chainId?: bigint;
-};
 export type BuiltUserOperation = {
     /**
      * - The fully-populated UserOperation ready to sign.

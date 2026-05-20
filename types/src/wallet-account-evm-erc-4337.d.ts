@@ -52,6 +52,14 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
      */
     signTypedData({ domain, types, message }: TypedData): Promise<string>;
     /**
+     * Signs a user operation built from the given transaction.
+     *
+     * @param {EvmTransaction} tx - The transaction to include in the user operation.
+     * @param {Partial<EvmErc4337WalletPaymasterTokenConfig | EvmErc4337WalletSponsorshipPolicyConfig | EvmErc4337WalletNativeCoinsConfig>} [config] - If set, overrides the given configuration options.
+     * @returns {Promise<SafeOperation>} The signed safe operation.
+     */
+    signTransaction(tx: EvmTransaction, config?: Partial<EvmErc4337WalletPaymasterTokenConfig | EvmErc4337WalletSponsorshipPolicyConfig | EvmErc4337WalletNativeCoinsConfig>): Promise<SafeOperation>;
+    /**
      * Approves a specific amount of tokens to a spender.
      *
      * @param {ApproveOptions} options - The approve options.
@@ -101,6 +109,8 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
     /** @private */
     private _consumeCachedQuote;
     /** @private */
+    private _buildSignedUserOperation;
+    /** @private */
     private _sendUserOperation;
 }
 export type Eip1193Provider = import("ethers").Eip1193Provider;
@@ -116,4 +126,5 @@ export type EvmErc4337WalletPaymasterTokenConfig = import("./wallet-account-read
 export type EvmErc4337WalletSponsorshipPolicyConfig = import("./wallet-account-read-only-evm-erc-4337.js").EvmErc4337WalletSponsorshipPolicyConfig;
 export type TypedData = import("./wallet-account-read-only-evm-erc-4337.js").TypedData;
 export type EvmErc4337WalletNativeCoinsConfig = import("./wallet-account-read-only-evm-erc-4337.js").EvmErc4337WalletNativeCoinsConfig;
+export type SafeOperation = import("@safe-global/types-kit").SafeOperation;
 import WalletAccountReadOnlyEvmErc4337 from './wallet-account-read-only-evm-erc-4337.js';

@@ -138,6 +138,35 @@ export default class WalletAccountEvmErc4337 extends WalletAccountReadOnlyEvmErc
   }
 
   /**
+   * Signs a user operation built from the given transaction.
+   *
+   * @param {EvmTransaction} tx - The transaction to include in the user operation.
+   * @param {Partial<EvmErc4337WalletPaymasterTokenConfig | EvmErc4337WalletSponsorshipPolicyConfig | EvmErc4337WalletNativeCoinsConfig>} [config] - If set, overrides the given configuration options.
+   * @returns {Promise<SafeOperation>} The signed safe operation.
+   */
+  async signTransaction (tx, config) {
+    const mergedConfig = { ...this._config, ...config }
+
+    if (config) {
+      this._validateConfig(mergedConfig)
+    }
+
+    const { isSponsored, useNativeCoins } = mergedConfig
+
+    const fee = this._getValidCachedFee(tx) ?? (await this.quoteSendTransaction(tx, config)).fee
+    this._lastQuote = undefined
+
+    const amountToApprove = (isSponsored || useNativeCoins) ? 0n : fee
+
+    const { signedSafeOperation } = await this._buildSignedUserOperation([tx], {
+      ...mergedConfig,
+      amountToApprove
+    })
+
+    return signedSafeOperation
+  }
+
+  /**
    * Approves a specific amount of tokens to a spender.
    *
    * @param {ApproveOptions} options - The approve options.

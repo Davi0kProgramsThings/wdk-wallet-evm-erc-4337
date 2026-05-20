@@ -433,9 +433,8 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
 
     const overrides = WalletAccountReadOnlyEvmErc4337._getInitCodeOverrides(config)
     const safeAddress = await this.getAddress()
-    const providerRpc = WalletAccountReadOnlyEvmErc4337._resolveProviderRpc(config.provider)
 
-    if (await SafeAccount030.isDeployed(safeAddress, providerRpc)) {
+    if (await SafeAccount030.isDeployed(safeAddress, this._provider)) {
       this._deployedSmartAccount = new SafeAccount030(safeAddress, overrides)
       return this._deployedSmartAccount
     }
@@ -593,7 +592,6 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     const chainId = await this._getChainId()
 
     const mode = WalletAccountReadOnlyEvmErc4337._resolvePaymasterMode(config)
-    const providerRpc = WalletAccountReadOnlyEvmErc4337._resolveProviderRpc(config.provider)
     const provider = mode !== PaymasterMode.NATIVE
       ? WalletAccountReadOnlyEvmErc4337._detectProvider(config.paymasterUrl)
       : null
@@ -601,8 +599,8 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     const gasPrice = await this._fetchBundlerGasPrice(config.bundlerUrl)
 
     const baseUserOp = (mode === PaymasterMode.NATIVE || provider === 'candide')
-      ? await smartAccount.createUserOperation(calls, providerRpc, config.bundlerUrl, gasPrice)
-      : await smartAccount.createUserOperation(calls, providerRpc, undefined, { skipGasEstimation: true, ...gasPrice })
+      ? await smartAccount.createUserOperation(calls, this._provider, config.bundlerUrl, gasPrice)
+      : await smartAccount.createUserOperation(calls, this._provider, undefined, { skipGasEstimation: true, ...gasPrice })
 
     if (mode === PaymasterMode.NATIVE) {
       return { userOp: baseUserOp, smartAccount, mode, chainId }
@@ -653,17 +651,6 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
     if (config.useNativeCoins) return PaymasterMode.NATIVE
     if (config.isSponsored) return PaymasterMode.SPONSORED
     return PaymasterMode.TOKEN
-  }
-
-  /** @private */
-  static _resolveProviderRpc (provider) {
-    if (typeof provider === 'string') return provider
-    if (Array.isArray(provider)) {
-      const resolved = provider.find(p => typeof p !== 'string') ?? provider.find(p => typeof p === 'string')
-      if (!resolved) throw new ConfigurationError('The provider array must contain at least one string URL or Eip1193Provider.')
-      return resolved
-    }
-    return provider
   }
 
   /** @private */

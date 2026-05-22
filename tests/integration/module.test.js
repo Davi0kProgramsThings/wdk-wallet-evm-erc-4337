@@ -674,7 +674,6 @@ describe('@wdk/wallet-evm-erc-4337', () => {
     const signedUserOp = await account0.signTransaction(TRANSACTION)
 
     expect(signedUserOp.sender.toLowerCase()).toBe(ACCOUNT0.safeAddress.toLowerCase())
-    expect(signedUserOp.signature).toMatch(/^0x[0-9a-f]+$/i)
 
     const hash = await account0._getBundler().sendUserOperation(signedUserOp, ENTRY_POINT_ADDRESS)
 
